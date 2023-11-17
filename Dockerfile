@@ -10,6 +10,6 @@ FROM openjdk:17-jdk-slim
 
 EXPOSE 8080
 
-ADD target/youtube-services.jar
+COPY --from=build /target/youtube-services.jar youtube-services.jar
 
 ENTRYPOINT ["java", "-jar", "youtube-services.jar"]
