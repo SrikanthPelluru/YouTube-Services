@@ -52,6 +52,7 @@
 				</configuration>
 			</plugin>
 		</plugins>
+		<finalName>youtube-services</finalName>
 	</build>
 
 </project>
