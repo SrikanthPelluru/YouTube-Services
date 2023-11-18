@@ -57,6 +57,11 @@ public class YoutubeSearchService {
         return new ResponseEntity<>(youtubeVideoData, HttpStatusCode.valueOf(status));
     }
 
+    public ResponseEntity<List<YoutubeVideoData>> getTrendingVideos() throws IOException {
+        URL url = new URL("https://www.youtube.com/feed/trending");
+        return getYoutubeData(url, "\\{\"videoRenderer\":\\{\"videoId\":(.*?)\\{\"thumbnailOverlayNowPlayingRenderer\":\\{\"text\":\\{\"runs\":\\[\\{\"text\":\"[^\"]*\"\\}\\]\\}\\}\\}\\]\\}\\},");
+    }
+
     private ResponseEntity<List<CompactYoutubeVideoData>> getCompactYoutubeData(URL url, String pattern) throws IOException {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
