@@ -23,6 +23,9 @@ class VideoRenderer {
     private Thumbnail thumbnail;
     private Title title;
     private LengthText lengthText;
+    private PublishedTimeText publishedTimeText;
+    private ViewCountText viewCountText;
+    private LongBylineText longBylineText;
 }
 
 @Getter
@@ -53,6 +56,22 @@ class LengthText {
 @Setter
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
+class PublishedTimeText {
+    private String simpleText;
+}
+
+@Getter
+@Setter
+@ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
+class ViewCountText {
+    private String simpleText;
+}
+
+@Getter
+@Setter
+@ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
 class Thumbnail {
     private List<Thumbnails> thumbnails;
 }
@@ -65,4 +84,12 @@ class Thumbnails {
     private String url;
     private int width;
     private int height;
+}
+
+@Getter
+@Setter
+@ToString
+@JsonIgnoreProperties(ignoreUnknown = true)
+class LongBylineText {
+    private List<Runs> runs;
 }

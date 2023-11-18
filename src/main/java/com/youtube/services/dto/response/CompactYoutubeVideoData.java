@@ -23,6 +23,9 @@ class CompactVideoRenderer {
     private Thumbnail thumbnail;
     private SimpleTitle title;
     private LengthText lengthText;
+    private PublishedTimeText publishedTimeText;
+    private ViewCountText viewCountText;
+    private LongBylineText longBylineText;
 }
 
 @Getter
