@@ -26,4 +26,9 @@ public class YoutubeSearchController {
     public ResponseEntity<List<CompactYoutubeVideoData>> getYoutubeVideosByVideoId(@RequestParam("videoId") String videoId) throws IOException {
         return service.getYoutubeDataByVideoId(videoId);
     }
+
+    @GetMapping("/trending")
+    public ResponseEntity<List<YoutubeVideoData>> getTrendingVideos() throws IOException {
+        return service.getTrendingVideos();
+    }
 }
