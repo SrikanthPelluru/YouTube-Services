@@ -1,6 +1,8 @@
 package com.youtube.services.controller;
 
 import com.youtube.services.dto.response.CompactYoutubeVideoData;
+import com.youtube.services.dto.response.YoutubeInitialData;
+import com.youtube.services.dto.response.YoutubeSearchData;
 import com.youtube.services.dto.response.YoutubeVideoData;
 import com.youtube.services.services.YoutubeSearchService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +20,7 @@ public class YoutubeSearchController {
     @Autowired
     private YoutubeSearchService service;
     @GetMapping("/query")
-    public ResponseEntity<List<YoutubeVideoData>> getYoutubeVideosByQuery(@RequestParam("q") String query) throws IOException {
+    public ResponseEntity<YoutubeSearchData> getYoutubeVideosByQuery(@RequestParam("q") String query) throws IOException {
         return service.getYoutubeDataByQuery(query);
     }
 
@@ -30,5 +32,15 @@ public class YoutubeSearchController {
     @GetMapping("/trending")
     public ResponseEntity<List<YoutubeVideoData>> getTrendingVideos() throws IOException {
         return service.getTrendingVideos();
+    }
+
+    @GetMapping("/initial")
+    public ResponseEntity<YoutubeInitialData> getInitialData() throws IOException {
+        return service.getYoutubeInitialData();
+    }
+
+    @GetMapping("/shorts")
+    public ResponseEntity<List<String>> getRelatedShorts(@RequestParam("videoId") String videoId) throws IOException {
+        return service.getRelatedShorts(videoId);
     }
 }
