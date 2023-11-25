@@ -19,23 +19,6 @@ public class YoutubeSearchData {
 @Setter
 @ToString
 @JsonIgnoreProperties(ignoreUnknown = true)
-class ItemSectionRenderer {
-    private List<ItemSectionRendererContents> contents;
-}
-
-@Getter
-@Setter
-@ToString
-@JsonIgnoreProperties(ignoreUnknown = true)
-class ItemSectionRendererContents {
-    private VideoRenderer videoRenderer;
-    private ReelShelfRenderer reelShelfRenderer;
-}
-
-@Getter
-@Setter
-@ToString
-@JsonIgnoreProperties(ignoreUnknown = true)
 class ReelShelfRenderer {
     private List<Items> items;
 }

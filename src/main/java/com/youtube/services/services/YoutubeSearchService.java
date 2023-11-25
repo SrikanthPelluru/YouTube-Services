@@ -1,10 +1,7 @@
 package com.youtube.services.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.youtube.services.dto.response.CompactYoutubeVideoData;
-import com.youtube.services.dto.response.YoutubeInitialData;
-import com.youtube.services.dto.response.YoutubeSearchData;
-import com.youtube.services.dto.response.YoutubeVideoData;
+import com.youtube.services.dto.response.*;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -13,7 +10,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +23,18 @@ public class YoutubeSearchService {
     public ResponseEntity<YoutubeSearchData> getYoutubeDataByQuery(String query) throws IOException {
         query = query.replace(" ", "+");
         URL url = new URL("https://www.youtube.com/results?search_query=" + query);
-        return getYoutubeSearchData(url, "\\{\"itemSectionRenderer\":\\{\"contents\":\\[(.*?)continuationItemRenderer\"");
+        ResponseEntity<YoutubeSearchData> searchData = getYoutubeSearchData(url, "\\{\"itemSectionRenderer\":\\{\"contents\":\\[(.*?)continuationItemRenderer\"");
+        YoutubeSearchData data = searchData.getBody();
+        if (data == null || data.getItemSectionRenderer() == null || data.getItemSectionRenderer().getContents() == null ||
+            data.getItemSectionRenderer().getContents().size() <= 1) {
+            ResponseEntity<List<YoutubeVideoData>> videoData = getYoutubeData(url, "\\{\"videoRenderer\":\\{\"videoId\":(.*?)\"searchVideoResultEntityKey\":\"[A-Za-z0-9]+\"\\}\\}");
+            videoData.getBody().forEach(youtubeVideoData -> {
+                ItemSectionRendererContents contents = new ItemSectionRendererContents();
+                contents.setVideoRenderer(youtubeVideoData.getVideoRenderer());
+                data.getItemSectionRenderer().getContents().add(contents);
+            });
+        }
+        return new ResponseEntity<>(data, searchData.getStatusCode());
     }
 
     private ResponseEntity<YoutubeSearchData> getYoutubeSearchData(URL url, String pattern) throws IOException {
