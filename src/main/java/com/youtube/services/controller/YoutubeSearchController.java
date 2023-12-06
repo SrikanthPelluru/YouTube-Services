@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 
 @RestController
@@ -42,5 +43,10 @@ public class YoutubeSearchController {
     @GetMapping("/shorts")
     public ResponseEntity<List<String>> getRelatedShorts(@RequestParam("videoId") String videoId) throws IOException {
         return service.getRelatedShorts(videoId);
+    }
+
+    @GetMapping("/cronJob")
+    public ResponseEntity<String> getCronJobResponse() {
+        return ResponseEntity.ok("Hitted at " + new Date());
     }
 }
