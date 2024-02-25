@@ -5,6 +5,8 @@ import com.youtube.services.dto.response.YoutubeInitialData;
 import com.youtube.services.dto.response.YoutubeSearchData;
 import com.youtube.services.dto.response.YoutubeVideoData;
 import com.youtube.services.services.YoutubeSearchService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -46,7 +48,14 @@ public class YoutubeSearchController {
     }
 
     @GetMapping("/cronJob")
-    public ResponseEntity<String> getCronJobResponse() {
+    public ResponseEntity<String> getCronJobResponse(HttpServletRequest request, HttpServletResponse response) {
+        System.out.println(request.getRemoteAddr());
+        System.out.println(response.getHeaderNames());
         return ResponseEntity.ok("Hitted at " + new Date());
+    }
+
+    @GetMapping("/getSuggestedText")
+    public ResponseEntity<List<String>> getSuggestedTextByInput(@RequestParam("q") String q) throws IOException {
+        return this.service.getSuggestedTextByInput(q);
     }
 }

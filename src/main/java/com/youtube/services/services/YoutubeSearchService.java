@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -176,5 +177,30 @@ public class YoutubeSearchService {
         }
         in.close();
         return new ResponseEntity<>(youtubeVideoIDs, HttpStatusCode.valueOf(status));
+    }
+
+    public ResponseEntity<List<String>> getSuggestedTextByInput(String in) throws IOException {
+        in = in.replace(" ", "%20");
+        URL url = new URL("http://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q="+in);
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setRequestMethod("GET");
+
+        int status = con.getResponseCode();
+        BufferedReader bufferedReader = new BufferedReader(
+                new InputStreamReader(con.getInputStream())
+        );
+        String inputLine;
+        List<String> response = new ArrayList<>();
+        while ((inputLine = bufferedReader.readLine()) != null) {
+            if(inputLine != null && !inputLine.isEmpty()) {
+                inputLine = inputLine.replace("\"", "");
+                int startInd=inputLine.indexOf("[", inputLine.indexOf("[") + 1)+1;
+                int lastInd = inputLine.indexOf("]");
+                String temp = inputLine.substring(startInd, lastInd);
+                response = new ArrayList<>(List.of(temp.split(",")));
+            }
+        }
+        bufferedReader.close();
+        return new ResponseEntity<>(response, HttpStatusCode.valueOf(status));
     }
 }
