@@ -14,7 +14,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,6 +24,7 @@ import java.util.regex.Pattern;
 public class YoutubeSearchService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Pattern VIDEO_ID_PATTERN = Pattern.compile("/watch\\?v=([a-zA-Z0-9_-]{11})");
 
     /**
      * Fetches search results from YouTube HTML and extracts key data
@@ -37,7 +40,7 @@ public class YoutubeSearchService {
      */
     public ResponseEntity<List<YoutubeVideoData>> getYoutubeDataByVideoId(String videoId) throws IOException {
         String url = "https://www.youtube.com/watch?v=" + videoId;
-        List<YoutubeVideoData> videos = parseYoutubeSearchPage(url);
+        List<YoutubeVideoData> videos = extractVideoIdsFromPage(url);
         return ResponseEntity.ok(videos);
     }
 
@@ -45,9 +48,32 @@ public class YoutubeSearchService {
      * Fetches trending videos (from trending page)
      */
     public ResponseEntity<List<YoutubeVideoData>> getTrendingVideos() throws IOException {
-        String url = "https://www.youtube.com/feed/trending";
+        String url = "https://www.youtube.com";
         List<YoutubeVideoData> videos = parseYoutubeSearchPage(url);
         return ResponseEntity.ok(videos);
+    }
+
+    /**
+     * Core reusable method to extract all unique videoIds from any YouTube HTML page
+     */
+    private List<YoutubeVideoData> extractVideoIdsFromPage(String url) throws IOException {
+        Document doc = Jsoup.connect(url)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                .timeout(20000)
+                .get();
+
+        String html = doc.html();
+        Matcher matcher = VIDEO_ID_PATTERN.matcher(html);
+        Set<YoutubeVideoData> ids = new LinkedHashSet<>();
+
+        while (matcher.find()) {
+            String id = matcher.group(1);
+            if (id != null && id.length() == 11 && !url.contains(id)) {
+                ids.add(new YoutubeVideoData(id));
+            }
+        }
+
+        return new ArrayList<>(ids);
     }
 
     /**
