@@ -1,8 +1,5 @@
 package com.youtube.services.controller;
 
-import com.youtube.services.dto.response.CompactYoutubeVideoData;
-import com.youtube.services.dto.response.YoutubeInitialData;
-import com.youtube.services.dto.response.YoutubeSearchData;
 import com.youtube.services.dto.response.YoutubeVideoData;
 import com.youtube.services.services.YoutubeSearchService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,45 +14,55 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/search")
-@CrossOrigin
 public class YoutubeSearchController {
 
     @Autowired
     private YoutubeSearchService service;
+
+    /**
+     * Search YouTube videos by keyword
+     * Example: /search/query?q=arijit+singh
+     */
     @GetMapping("/query")
-    public ResponseEntity<YoutubeSearchData> getYoutubeVideosByQuery(@RequestParam("q") String query) throws IOException {
+    public ResponseEntity<List<YoutubeVideoData>> getYoutubeVideosByQuery(@RequestParam("q") String query)
+            throws IOException {
         return service.getYoutubeDataByQuery(query);
     }
 
+    /**
+     * Get related videos for a given YouTube videoId
+     * Example: /search/related?videoId=abcd1234
+     */
     @GetMapping("/related")
-    public ResponseEntity<List<CompactYoutubeVideoData>> getYoutubeVideosByVideoId(@RequestParam("videoId") String videoId) throws IOException {
+    public ResponseEntity<List<YoutubeVideoData>> getYoutubeVideosByVideoId(@RequestParam("videoId") String videoId)
+            throws IOException {
         return service.getYoutubeDataByVideoId(videoId);
     }
 
+    /**
+     * Get trending videos
+     * Example: /search/trending
+     */
     @GetMapping("/trending")
     public ResponseEntity<List<YoutubeVideoData>> getTrendingVideos() throws IOException {
         return service.getTrendingVideos();
     }
 
-    @GetMapping("/initial")
-    public ResponseEntity<YoutubeInitialData> getInitialData() throws IOException {
-        return service.getYoutubeInitialData();
-    }
-
-    @GetMapping("/shorts")
-    public ResponseEntity<List<String>> getRelatedShorts(@RequestParam("videoId") String videoId) throws IOException {
-        return service.getRelatedShorts(videoId);
-    }
-
-    @GetMapping("/cronJob")
-    public ResponseEntity<String> getCronJobResponse(HttpServletRequest request, HttpServletResponse response) {
-        System.out.println(request.getRemoteAddr());
-        System.out.println(response.getHeaderNames());
-        return ResponseEntity.ok("Hitted at " + new Date());
-    }
-
+    /**
+     * Get text suggestions for search
+     * Example: /search/getSuggestedText?q=love
+     */
     @GetMapping("/getSuggestedText")
     public ResponseEntity<List<String>> getSuggestedTextByInput(@RequestParam("q") String q) throws IOException {
         return this.service.getSuggestedTextByInput(q);
+    }
+
+    /**
+     * Simple ping endpoint for Render cron health checks
+     */
+    @GetMapping("/cronJob")
+    public ResponseEntity<String> getCronJobResponse(HttpServletRequest request, HttpServletResponse response) {
+        System.out.println("Pinged from: " + request.getRemoteAddr());
+        return ResponseEntity.ok("Service active at " + new Date());
     }
 }

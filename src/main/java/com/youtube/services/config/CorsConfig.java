@@ -14,11 +14,8 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        // TODO: Replace with your frontend URLs
-                        .allowedOrigins(
-                                "http://localhost:4200",
-                                "https://ad-free-youtube.onrender.com/"
-                        )
+                        // 🔹 Use allowedOriginPatterns instead of allowedOrigins
+                        .allowedOriginPatterns("*")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true)

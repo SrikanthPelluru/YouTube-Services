@@ -1,151 +1,141 @@
 package com.youtube.services.services;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.youtube.services.dto.response.*;
-import org.springframework.http.HttpStatus;
+import com.youtube.services.dto.response.YoutubeVideoData;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-/**
- * Modernized YouTube Search Service using yt-dlp CLI
- * yt-dlp must be installed in system PATH or your Docker image
- * Example install (Linux): apt install yt-dlp
- * Example install (Windows): pip install yt-dlp
- */
 @Service
 public class YoutubeSearchService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Search YouTube videos by query using yt-dlp JSON output
+     * Fetches search results from YouTube HTML and extracts key data
      */
-    public ResponseEntity<YoutubeSearchData> getYoutubeDataByQuery(String query) throws IOException {
-        String json = runYtDlpCommand("ytsearch10:" + query);
-        List<YoutubeVideoData> videos = objectMapper.readValue(json, new TypeReference<List<YoutubeVideoData>>() {});
-        YoutubeSearchData searchData = new YoutubeSearchData();
-
-        ItemSectionRenderer renderer = new ItemSectionRenderer();
-        List<ItemSectionRendererContents> contents = new ArrayList<>();
-        for (YoutubeVideoData v : videos) {
-            ItemSectionRendererContents c = new ItemSectionRendererContents();
-            c.setVideoRenderer(v.getVideoRenderer());
-            contents.add(c);
-        }
-        renderer.setContents(contents);
-        searchData.setItemSectionRenderer(renderer);
-
-        return new ResponseEntity<>(searchData, HttpStatus.OK);
+    public ResponseEntity<List<YoutubeVideoData>> getYoutubeDataByQuery(String query) throws IOException {
+        String url = "https://www.youtube.com/results?search_query=" + query.replace(" ", "+");
+        List<YoutubeVideoData> videos = parseYoutubeSearchPage(url);
+        return ResponseEntity.ok(videos);
     }
 
     /**
-     * Get related videos for a given YouTube video ID
+     * Fetches related videos by videoId (from watch page)
      */
-    public ResponseEntity<List<CompactYoutubeVideoData>> getYoutubeDataByVideoId(String videoId) throws IOException {
-        String json = runYtDlpCommand("https://www.youtube.com/watch?v=" + videoId + " --flat-playlist --dump-json");
-        List<CompactYoutubeVideoData> videos = objectMapper.readValue(json, new TypeReference<List<CompactYoutubeVideoData>>() {});
-        return new ResponseEntity<>(videos, HttpStatus.OK);
+    public ResponseEntity<List<YoutubeVideoData>> getYoutubeDataByVideoId(String videoId) throws IOException {
+        String url = "https://www.youtube.com/watch?v=" + videoId;
+        List<YoutubeVideoData> videos = parseYoutubeSearchPage(url);
+        return ResponseEntity.ok(videos);
     }
 
     /**
-     * Fetch trending videos
+     * Fetches trending videos (from trending page)
      */
     public ResponseEntity<List<YoutubeVideoData>> getTrendingVideos() throws IOException {
-        String json = runYtDlpCommand("https://www.youtube.com/feed/trending --dump-json");
-        List<YoutubeVideoData> videos = objectMapper.readValue(json, new TypeReference<List<YoutubeVideoData>>() {});
-        return new ResponseEntity<>(videos, HttpStatus.OK);
+        String url = "https://www.youtube.com/feed/trending";
+        List<YoutubeVideoData> videos = parseYoutubeSearchPage(url);
+        return ResponseEntity.ok(videos);
     }
 
     /**
-     * Get initial homepage data (trending/recommended)
+     * Parses the YouTube HTML, extracts ytInitialData JSON, and maps required fields
      */
-    public ResponseEntity<YoutubeInitialData> getYoutubeInitialData() throws IOException {
-        String json = runYtDlpCommand("https://www.youtube.com --dump-json");
-        YoutubeInitialData data = objectMapper.readValue(json, YoutubeInitialData.class);
-        return new ResponseEntity<>(data, HttpStatus.OK);
+    private List<YoutubeVideoData> parseYoutubeSearchPage(String pageUrl) throws IOException {
+        // Fetch HTML
+        Document doc = Jsoup.connect(pageUrl)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+                .timeout(15000)
+                .get();
+
+        // Find JSON blob
+        Pattern pattern = Pattern.compile("var ytInitialData = (\\{.*?\\});");
+        Matcher matcher = pattern.matcher(doc.html());
+
+        if (!matcher.find()) {
+            throw new IOException("ytInitialData not found in HTML");
+        }
+
+        String jsonData = matcher.group(1);
+        JsonNode root = objectMapper.readTree(jsonData);
+
+        List<YoutubeVideoData> results = new ArrayList<>();
+
+        // Extract main sections (handles both search & trending pages)
+        JsonNode sections = root.at("/contents/twoColumnSearchResultsRenderer/primaryContents/sectionListRenderer/contents");
+        if (sections.isMissingNode() || !sections.isArray()) {
+            sections = root.at("/contents/twoColumnBrowseResultsRenderer/tabs/0/tabRenderer/content/sectionListRenderer/contents");
+        }
+
+        extractVideosFromSections(sections, results);
+        return results;
     }
 
     /**
-     * Get Shorts related to a video ID
+     * Helper: Extracts video info from a section list JSON node
      */
-    public ResponseEntity<List<String>> getRelatedShorts(String videoId) throws IOException {
-        String json = runYtDlpCommand("https://www.youtube.com/shorts/" + videoId + " --flat-playlist --dump-json");
-        List<String> ids = new ArrayList<>();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new java.io.ByteArrayInputStream(json.getBytes())));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            if (line.contains("\"id\"")) {
-                try {
-                    var node = objectMapper.readTree(line);
-                    ids.add(node.get("id").asText());
-                } catch (Exception ignored) {}
+    private void extractVideosFromSections(JsonNode sections, List<YoutubeVideoData> results) {
+        if (sections == null || !sections.isArray()) return;
+
+        for (JsonNode section : sections) {
+            JsonNode items = section.path("itemSectionRenderer").path("contents");
+            if (!items.isArray()) continue;
+
+            for (JsonNode item : items) {
+                JsonNode video = item.path("videoRenderer");
+                if (video.isMissingNode()) continue;
+
+                YoutubeVideoData data = new YoutubeVideoData();
+                data.setVideoId(video.path("videoId").asText());
+                data.setTitle(video.path("title").path("runs").get(0).path("text").asText(""));
+                data.setChannelName(video.path("ownerText").path("runs").get(0).path("text").asText(""));
+
+                // Thumbnail
+                JsonNode thumbs = video.path("thumbnail").path("thumbnails");
+                if (thumbs.isArray() && thumbs.size() > 0) {
+                    data.setThumbnailUrl(thumbs.get(thumbs.size() - 1).path("url").asText(""));
+                }
+
+                // Duration
+                JsonNode len = video.path("lengthText").path("simpleText");
+                if (!len.isMissingNode()) {
+                    data.setDuration(len.asText());
+                }
+
+                results.add(data);
             }
         }
-        return new ResponseEntity<>(ids, HttpStatus.OK);
     }
 
     /**
-     * Get search suggestions using Google Suggest API (still valid)
+     * Fetches search suggestions from Google Suggest API
      */
     public ResponseEntity<List<String>> getSuggestedTextByInput(String input) throws IOException {
         input = input.replace(" ", "%20");
-        java.net.URL url = new java.net.URL("https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=" + input);
-        java.net.HttpURLConnection con = (java.net.HttpURLConnection) url.openConnection();
-        con.setRequestProperty("User-Agent", "Mozilla/5.0");
+        URL url = new URL("https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=" + input);
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
 
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        String inputLine;
-        List<String> response = new ArrayList<>();
-        while ((inputLine = bufferedReader.readLine()) != null) {
-            if (inputLine != null && !inputLine.isEmpty()) {
-                inputLine = inputLine.replace("\"", "");
-                int startInd = inputLine.indexOf("[", inputLine.indexOf("[") + 1) + 1;
-                int lastInd = inputLine.indexOf("]");
-                if (startInd > 0 && lastInd > 0 && lastInd > startInd) {
-                    String temp = inputLine.substring(startInd, lastInd);
-                    response = new ArrayList<>(List.of(temp.split(",")));
-                }
-            }
-        }
-        bufferedReader.close();
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    }
+        BufferedReader reader = new BufferedReader(new InputStreamReader(con.getInputStream()));
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) response.append(line);
+        reader.close();
 
-    /**
-     * Utility: Runs yt-dlp command and captures JSON output
-     */
-    private String runYtDlpCommand(String args) throws IOException {
-        ProcessBuilder pb = new ProcessBuilder("yt-dlp", "--dump-json", args);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
-
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-        }
-
-        try {
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                throw new IOException("yt-dlp failed with exit code " + exitCode);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("yt-dlp command interrupted", e);
-        }
-
-        return output.toString();
+        String json = response.toString().replace("[[", "").replace("]]", "").replace("\"", "");
+        String[] suggestions = json.split(",");
+        return ResponseEntity.ok(List.of(suggestions));
     }
 }
